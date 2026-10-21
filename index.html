@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>學習工作台 | 雙語對照 & AI 智慧助理</title>
+
+  <!-- PWA 獨立視窗設定 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="學習工作台">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#4f46e5">
+
+  <!-- App 桌面與瀏覽器圖示 -->
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+
+  <!-- Web App Manifest -->
+  <link rel="manifest" href='data:application/manifest+json,{"name":"學習輔助工作台","short_name":"學習工作台","start_url":".","display":"standalone","background_color":"#f8fafc","theme_color":"#4f46e5","icons":[{"src":"icon.png","sizes":"512x512","type":"image/png"}]}'>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome 圖示庫 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Markdown 渲染引擎 -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- KaTeX 數學公式排版 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+  <!-- PDF.js 解析引擎 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <!-- 引入自訂外部樣式表 -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- ==================== 1. 管理員審核門禁彈窗 ==================== -->
+  <div id="gateModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white max-w-md w-full rounded-2xl p-6 shadow-2xl border border-slate-100 text-center">
+      <div class="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl">
+        <i class="fa-solid fa-user-shield"></i>
+      </div>
+      <h2 class="text-lg font-bold text-slate-900 mb-1">私有學習工作台</h2>
+      <p class="text-xs text-slate-500 mb-5 leading-relaxed">此工具為私人學習專用，初次使用必須先向管理員發送 Email 審核申請，經批准後方可進入。</p>
+      
+      <div class="space-y-3 text-left">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">您的姓名 / 暱稱：</label>
+          <input type="text" id="reqName" placeholder="例如：王小明" 
+            class="w-full p-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">您的常用 Email：</label>
+          <input type="email" id="reqEmail" placeholder="例如：student@gmail.com" 
+            class="w-full p-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+        
+        <button id="sendReqBtn" onclick="submitAccessRequest()" 
+          class="w-full mt-2 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-medium text-sm rounded-xl transition shadow-md shadow-indigo-100 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-paper-plane text-xs"></i>
+          <span>發送授權申請至管理員 Gmail</span>
+        </button>
+
+        <button onclick="checkMyApprovalStatus()" 
+          class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium text-xs rounded-xl transition">
+          已請管理員審核？點此檢查狀態並進入
+        </button>
+      </div>
+
+      <div id="gateMsg" class="mt-3 text-xs hidden"></div>
+    </div>
+  </div>
+
+  <!-- ==================== 2. 個人 API Key 設定彈窗 ==================== -->
+  <div id="keySetupModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-40 flex items-center justify-center p-4 hidden">
+    <div class="bg-white max-w-lg w-full rounded-2xl p-6 shadow-2xl border border-slate-100">
+      <div class="flex items-center space-x-3 mb-3">
+        <div class="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center text-xl shrink-0">
+          <i class="fa-solid fa-key"></i>
+        </div>
+        <div>
+          <h2 class="text-base font-bold text-slate-900 leading-tight">設定您的 Gemini API 金鑰</h2>
+          <p class="text-xs text-slate-500">搭載 Gemini 3.8 Flash，請輸入您的免費金鑰開始使用</p>
+        </div>
+      </div>
+
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 mb-4 text-xs text-slate-600 space-y-1.5 leading-relaxed">
+        <div class="font-bold text-slate-700 flex items-center gap-1.5">
+          <i class="fa-solid fa-circle-info text-indigo-500"></i> 如何在 1 分鐘內免費取得金鑰？
+        </div>
+        <ol class="list-decimal pl-4 space-y-1">
+          <li>前往 <a href="https://aistudio.google.com/apikey" target="_blank" class="text-indigo-600 font-bold hover:underline">Google AI Studio</a> 登入。</li>
+          <li>點擊「建立 API 金鑰（Create API key）」。</li>
+          <li>複製生成的代碼（以 <code>AIzaSy...</code> 開頭），貼入下方儲存即可。</li>
+        </ol>
+      </div>
+
+      <div class="space-y-3">
+        <input type="password" id="modalKeyInput" placeholder="在此貼上 AIzaSy 開頭的金鑰..." 
+          class="w-full p-3 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono">
+        <div class="flex gap-2">
+          <button onclick="saveModalKey()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-xl transition">
+            儲存金鑰並開始學習
+          </button>
+          <button onclick="closeKeyModal()" id="keyCancelBtn" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-medium rounded-xl transition hidden">
+            關閉
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 頂部導覽列 -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm px-6 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="bg-indigo-600 text-white w-9 h-9 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-brain text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-base font-bold text-slate-900 leading-tight">學習輔助工作台</h1>
+          <p class="text-xs text-slate-500">文件辨識 ✕ 雙語閱讀 ✕ 全能 AI 智慧助理</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2">
+        <button id="installAppBtn" onclick="installPWA()" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
+          <i class="fa-solid fa-download"></i>
+          <span>安裝為 App</span>
+        </button>
+
+        <div id="keyStatusBadge" class="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-xl text-xs font-mono">
+          <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+          <span>金鑰載入中...</span>
+        </div>
+
+        <button onclick="openKeyModal()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium transition flex items-center gap-1.5">
+          <i class="fa-solid fa-gear text-slate-400"></i>
+          <span>管理金鑰</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主內容雙欄 -->
+  <main class="max-w-7xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 w-full">
+
+    <!-- 左欄：檔案讀取與中英對照 -->
+    <section class="lg:col-span-6 flex flex-col space-y-4">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        
+        <div id="dropZone" onclick="document.getElementById('fileInput').click()" 
+          class="border-2 border-dashed border-indigo-200 hover:border-indigo-500 bg-indigo-50/40 hover:bg-indigo-50 p-4 rounded-xl text-center cursor-pointer transition mb-3">
+          <input type="file" id="fileInput" class="hidden" accept=".pdf, .txt, .md, image/*" onchange="handleFileSelect(event)">
+          <div class="flex items-center justify-center space-x-2 text-indigo-600 font-medium text-sm">
+            <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
+            <span>點擊上傳或拖入檔案（支援 PDF、講義截圖、TXT）</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">也可以在網頁任何地方直接按 <kbd class="px-1.5 py-0.5 bg-white border border-slate-300 rounded shadow-sm">Ctrl + V</kbd> 貼上截圖</p>
+        </div>
+
+        <div id="fileStatus" class="hidden text-xs py-1.5 px-3 bg-amber-50 text-amber-800 rounded-lg mb-3 flex items-center space-x-2">
+          <i class="fa-solid fa-spinner animate-spin"></i>
+          <span id="fileStatusText">正在處理檔案內容...</span>
+        </div>
+
+        <div class="flex items-center justify-between mb-2">
+          <label class="font-bold text-slate-700 text-xs flex items-center gap-1.5">
+            <i class="fa-solid fa-align-left text-slate-400"></i>
+            <span>讀取內容（可自由修改編輯）：</span>
+          </label>
+          <button onclick="clearLeft()" class="text-xs text-slate-400 hover:text-slate-600">清空</button>
+        </div>
+
+        <textarea id="rawInput" rows="5" placeholder="內容讀取後會自動填入此處，也可以直接貼上文章或題目..." 
+          class="w-full p-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none transition resize-none"></textarea>
+        
+        <div class="mt-3 flex justify-end">
+          <button id="processBtn" onclick="processContent()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl shadow-sm transition flex items-center space-x-2">
+            <i class="fa-solid fa-arrows-split-up-and-left"></i>
+            <span>生成雙語句段對照</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex-1 flex flex-col">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+          <h2 class="font-bold text-slate-800 text-sm">中英左右對照閱讀</h2>
+          <span id="pairBadge" class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-mono">0 個句段</span>
+        </div>
+        <div id="pairsContainer" class="space-y-3 overflow-y-auto max-h-[500px] pr-1">
+          <div class="text-center py-16 text-slate-400 text-sm">上傳檔案或貼入內容後，雙語對照將呈現在此</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 右欄：全能 AI 智慧助理 -->
+    <section class="lg:col-span-6 flex flex-col space-y-4">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex-1 flex flex-col min-h-[680px]">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+          <h2 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            AI 智慧助理 (Gemini 3.8 Flash)
+          </h2>
+          <div class="flex gap-2">
+            <button onclick="askAssistant('detail')" class="px-3 py-1 text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium rounded-lg transition">詳細分析解答</button>
+            <button onclick="askAssistant('summary')" class="px-3 py-1 text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 font-medium rounded-lg transition">核心重點摘要</button>
+          </div>
+        </div>
+
+        <div id="tutorMessages" class="flex-1 overflow-y-auto space-y-4 pr-1 max-h-[540px]">
+          <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-600 leading-relaxed">
+            👋 歡迎使用！你可以將任何講義、文章、PDF、照片或題目貼在左側，點擊<b>「詳細分析解答」</b>或直接在下方提問。無論是各科課業、英文寫作、程式碼除錯或一般日常問題，都可以隨時問我！
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-100 flex gap-2">
+          <input type="text" id="followUpInput" onkeydown="if(event.key==='Enter') sendFollowUp()" placeholder="輸入任何問題或指令...（例如：解釋觀念、深入分析、撰寫程式碼）" class="flex-1 p-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none transition">
+          <button onclick="sendFollowUp()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl transition">發問</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 引入獨立的 JavaScript 邏輯 -->
+  <script src="script.js"></script>
+</body>
+</html>
