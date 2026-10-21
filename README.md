@@ -112,4 +112,4 @@ study-app/
 
 ## 📄 授權條款
 
-本專案採 [MIT License](LICENSE) 授權釋出，歡迎自由研習與改良。
+本專案採 [MIT License](LICENSE) 授權釋出，歡迎一起開發討論!
