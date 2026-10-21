@@ -1,4 +1,4 @@
-# 學習輔助工作台 (Study App)
+# 學習輔助工具 (Study App)
 
 <p align="center">
   <img src="icon.png" alt="App Icon" width="96" height="96" style="border-radius: 20px;">
